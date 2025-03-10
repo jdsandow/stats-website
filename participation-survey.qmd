@@ -1,0 +1,340 @@
+---
+title: "Cinema attendance and life satisfaction, 2022/23"
+format: html
+execute: 
+  echo: false
+  warning: false
+---
+
+```{r Libraries}
+#| output: false 
+library(plotly)
+library(survey)
+library(haven)
+library(DT)
+```
+
+```{r Import survey}
+#| output: false
+survey_data <- read_sav("survey/ukda-9126-cut-down.sav")
+survey_data <- haven::as_factor(survey_data)
+survey_data <- droplevels(survey_data)
+survey_design <- svydesign(ids = ~1, data = survey_data, weights = ~finalweight)
+```
+
+# Introduction
+The DCMS' annual Participation Survey asks a representative sample of English adults about their engagement with the arts in the prior year. As well as asking specifically arts-related questions (e.g., did they visit the cinema), it also asks a range of contextual questions, including about their wellbeing. It is this, the link between cinema engagement and wellbeing, that is the focus of this report. 
+
+# Cinema attendance
+The survey asks respondents whether they have attended a cinema in the last 12 months, covering the period April 2022-March 2023. Just under half of respondents (49%) responded affirmatively. These respondents were then asked how often they had been to the cinema in the last 12 months, revealing that only 1.5% of 2022/23 cinema-goers went weekly, with more than half (54%) going only once or twice a year. This means that out of the whole population of English adults only 0.7% of them went weekly
+
+*Figure 1* Frequency of cinema attendance in 2022/23
+<br><small style="font-size:75%;">Filter hint: deselect 'Never' in the legend by clicking on it, and make the pie chart show cinema-goers only.</small>
+
+```{r Attendance pie}
+attendance <- svytable(~CARTS1_004, design = survey_design)
+attendance_rate <- svytable(~CARTS1A_d, design = survey_design)
+attendance_rate <- append(attendance_rate, attendance[1])
+attendance_rate_df <- as.data.frame(attendance_rate)
+attendance_rate_df$Rate <- c("Weekly","Monthly","Quarterly","Semi-annually","Annually","Don't remember","Never")
+names(attendance_rate_df)[1] <- "weight_sum"
+write.csv(attendance_rate_df,"survey/f1-attendance.csv",row.names=FALSE)
+
+fig <- plot_ly(
+  data = attendance_rate_df, 
+  labels = ~Rate, 
+  values = ~weight_sum, 
+  type = 'pie',
+  sort = FALSE,
+  direction = 'clockwise',
+  textinfo = 'label',
+  hoverinfo = 'label+percent',
+  hovertemplate = "%{label}<br> %{percent:.1%}<extra></extra>",
+  insidetextorientation = 'radial',
+  textfont = list(color = "white")
+) %>% 
+layout(
+  showlegend = TRUE,
+  legend = list(font = list(color = 'white')),
+  paper_bgcolor='rgba(0,0,0,0)',
+  plot_bgcolor='rgba(0,0,0,0)'
+)
+
+fig
+```
+
+::: {style="font-size: 75%;"}
+Variables = CARTS1_004 *In the last 12 months which of the following events have you attended in person in England : a cinema screening of a film or movie* and CARTS1A_d *How often in the last 12 months have you attended : a cinema screening of a film or movie?*<br>
+Response options = At least once a week; Less often than once a week but at least once a month; Less often than once a month but at least 3 or 4 times a year; Twice in the last 12 months; Once in the last 12 months; Don't know<br>
+<a href="survey/f1-attendance.csv" download>Download data</a>
+:::
+
+# Life satisfaction
+The survey asks respondents to rate their life satisfaction on a scale from 0 to 10, where 0 is 'not at all satisfied' and 10 is 'completely satisfied'. DCMS then grouped these scores into Low (0-4), Medium (5-6), High (7-8) and Very high (9-10). As can be seen by Figure 1, the vast majority of respondents rated their life satisfaction as at least medium. Just 12% of respondents rated their life satisfaction as low, with the modal group being high satisfaction (45%). 
+
+*Figure 2* Life satisfaction ratings in 2022/23
+```{r Satisfaction pie}
+satisfaction <- svytable(~WELLB1_NET, design = survey_design)
+names(dimnames(satisfaction)) <- ("Satisfaction")
+satisfaction_df <- as.data.frame(satisfaction)
+names(satisfaction_df)[2] <- "weight_sum"
+write.csv(satisfaction_df,"survey/f2-satisfaction.csv",row.names=FALSE)
+
+fig <- plot_ly(
+  data = satisfaction_df, 
+  labels = ~Satisfaction, 
+  values = ~weight_sum, 
+  type = 'pie',
+  sort = FALSE,
+  direction = 'clockwise',
+  textinfo = 'label',
+  hoverinfo = 'label+percent',
+  insidetextorientation = 'radial'
+) %>% 
+layout(
+  showlegend = FALSE,
+  paper_bgcolor='rgba(0,0,0,0)',
+  plot_bgcolor='rgba(0,0,0,0)'
+)
+
+fig
+```
+
+::: {style="font-size: 75%;"}
+Variable = WELLB1 *Overall how satisfied are you with your life nowadays?*<br>
+<a href="survey/f2-satisfaction.csv" download>Download data</a>
+:::
+
+# Cinema attendance by life satisfaction
+The survey data shows a statistically meaningful relationship between life satisfaction and cinema attendance. As can be seen in Figure 4, those with a low life satisfaction rating were the least likely to have been to the cinema in 2022/23. However, as we know that life satisfaction is related to deprivation, it is important to consider whether this relationship is confounded by deprivation.
+(Also to note is that the relationship is not neatly linear, with the highest attendance rates peaks for those scoring themselves '7', before slightly dropping and then notably falling for those with 10/10 satisfaction.)
+
+Figure 3 *Cinema attendance by life satisfaction*
+```{r Attendance by satisfaction}
+attend_satisfaction <- svytable(~CARTS1_004+WELLB1, design = survey_design)
+attend_satisfaction <- round((prop.table(attend_satisfaction, margin=2)) * 100,1)
+attend_satisfaction <- as.data.frame(attend_satisfaction)
+colnames(attend_satisfaction) <- c('Attendance','Satisfaction','Percent')
+write.csv(attend_satisfaction,"survey/f3-attend-satisfaction.csv", row.names=FALSE)
+attend_satisfaction <- attend_satisfaction[attend_satisfaction$Attendance=="Yes",]
+
+fig <- plot_ly() %>%
+  add_trace(
+    data = attend_satisfaction,
+    x = ~Satisfaction,
+    y = ~Percent,
+    type = 'bar',
+    visible = TRUE,
+    color = ~Satisfaction,
+    hovertemplate = "%{x}<br>%{y}%<extra></extra>"
+  ) %>%
+  layout(
+    barmode = 'group',
+    xaxis = list(
+      title = list(text = 'Life satisfaction score', font = list(color = 'white')),
+      tickfont = list(color = 'white')
+    ),
+    yaxis = list(
+      title = list(text = 'Cinema attendance %', font = list(color = 'white')),
+      tickfont = list(color = 'white')
+    ),
+    showlegend = FALSE,
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+
+fig
+```
+
+::: {style="font-size: 75%;"}
+Variables = WELLB1 *Overall how satisfied are you with your life nowadays?* and CARTS1_004 *In the last 12 months which of the following events have you attended in person in England : a cinema screening of a film or movie*<br>
+<a href="survey/f3-attend-satisfaction.csv" download>Download data</a>
+:::
+
+# Life satisfaction and deprivation index
+Looking at the link between cinema attendance and a single aspect is unlikely to tell us the whole story - there are likely to be other factors at play. As it has been suggested that there is a link between life satisfaction and poverty, it makes sense to look at the link between both cinema attendance and deprivation, and also life satisfaction and deprivation, to see whether the relationship between cinema attendance and life satisfaction could be better explained as the relationship between cinema attendance and deprivation.
+
+## Cinema attendance by deprivation index
+The survey includes a measure of deprivation, the Index of Multiple Deprivation (IMD), which is a composite measure of deprivation based on income, employment, health, education, crime, and living environment. Respondents' postcodes are used to derive their LSOA (Lower layer Super Output Area, i.e., their immediate local area) and then assign them to this index. The index is represented by deciles, with 1 being the least deprived and 10 the most deprived, there are roughly equal numbers of people in each decile (between 9% and 11%).<br>
+As seen in the following figure, there is a clear link between cinema attendance and deprivation, and it is even more linear than the relationship between cinema attendance and life satisfaction. At every step except for one, the more deprived an area you live in, the less likely you are to have been to the cinema in the last year.
+
+Figure 4 *Cinema attendance by index of multiple deprivation*
+```{r Attendance by deprivation}
+attend_imd <- svytable(~CARTS1_004+emdidc19, design = survey_design)
+attend_imd <- round((prop.table(attend_imd, margin=2)) * 100,1)
+attend_imd <- as.data.frame(attend_imd)
+colnames(attend_imd) <- c('Attendance','IMD','Percent')
+write.csv(attend_imd,'survey/f4-attend-imd.csv',row.names=FALSE)
+attend_imd <- attend_imd[attend_imd$Attendance=="Yes",]
+
+fig <- plot_ly() %>%
+  add_trace(
+    data = attend_imd,
+    x = ~IMD,
+    y = ~Percent,
+    type = 'bar',
+    visible = TRUE,
+    color = ~IMD,
+    hovertemplate = "%{x}<br>%{y}%<extra></extra>"
+  ) %>%
+  layout(
+    barmode = 'group',
+    xaxis = list(
+      title = list(text = 'Index of multiple deprivation', font = list(color = 'white')),
+      tickfont = list(color = 'white')
+    ),
+    yaxis = list(
+      title = list(text = 'Cinema attendance %', font = list(color = 'white')),
+      tickfont = list(color = 'white')
+    ),
+    showlegend = FALSE,
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+
+fig
+```
+
+::: {style="font-size: 75%;"}
+Variables = CARTS1_004 *In the last 12 months which of the following events have you attended in person in England : a cinema screening of a film or movie* and emdidc19 *Index of Multiple Deprivation*<br>
+<a href="survey/f4-attend-imd.csv" download>Download data</a>
+:::
+
+## Life satisfaction by deprivation index
+Now that we know both life satisfaction and deprivation are good indicators for cinema attendance, we should look at the relationship between these factors.<br>
+Conducting a Pearson's Chi-squared test on the two variables reveals that there is a statistically significant relationship between life satisfaction and deprivation (p<0.001). Looking at the residuals reveals that the effect is most obviously observed amongst people with low life satisfaction, as can be seen in Figure 3 which shows a roughly linear relationship between the level of deprivation and the proportion of people with low life satisfaction.<br>
+However, this is not necessarily a rebuttal to the adage of 'money doesn't buy you happiness'. At the other end of the scale, the percentages of people with 'very high' life satisfaction are much closer together across the deprivation groups, with a range between 24% and 20% (although this lowest figure is still the amongst most deprived group). (You can look at this yourself by changing the filter in the below figure.)
+
+Figure 5 Life satisfaction by deprivation index
+
+```{r Satisfaction by IMD}
+satisfaction_imd <- svytable(~emdidc19+WELLB1_NET, design = survey_design)
+satisfaction_imd <- round((prop.table(satisfaction_imd, margin=1)) * 100,1)
+satisfaction_imd <- as.data.frame(satisfaction_imd)
+colnames(satisfaction_imd) <- c('IMD','Satisfaction','Percent')
+write.csv(satisfaction_imd,'survey/f5-satisfaction-imd.csv',row.names=FALSE)
+satisfaction_imd_04 <- satisfaction_imd[satisfaction_imd$Satisfaction=="Low (0-4)",]
+satisfaction_imd_510 <- satisfaction_imd[satisfaction_imd$Satisfaction!="Low (0-4)",]
+
+fig <- plot_ly() %>%
+  add_trace(
+    data = satisfaction_imd_04,
+    x = ~IMD,
+    y = ~Percent,
+    color = ~Satisfaction,
+    type = 'bar',
+    visible = TRUE,
+    hovertemplate = "%{fullData.name}<br>%{y}%<extra></extra>"
+  ) %>%
+  add_trace(
+    data = satisfaction_imd_510,
+    x = ~IMD,
+    y = ~Percent,
+    color = ~Satisfaction,
+    type = 'bar',
+    visible = "legendonly",
+    hovertemplate = "%{fullData.name}<br>%{y}%<extra></extra>"
+  ) %>%
+  layout(
+    barmode = 'stack',
+    xaxis = list(
+      title = list(text = 'Deprivation index', font = list(color = 'white')),
+      tickfont = list(color = 'white')
+    ),
+    yaxis = list(
+      title = list(text = 'Percentage', font = list(color = 'white')),
+      tickfont = list(color = 'white')
+    ),
+    legend = list(font = list(color = 'white')),
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+
+fig
+```
+
+::: {style="font-size: 75%;"}
+Variables = WELLB1 *Overall how satisfied are you with your life nowadays?* and emdidc19 *Index of Multiple Deprivation*<br>
+<a href="survey/f5-satisfaction-imd.csv" download>Download data</a>
+:::
+
+## Cinema attendance by life satisfaction and deprivation
+As has been shown, to have a greater understanding of the relationship between cinema attendance and life satisfaction, we need to untangle the affects of deprivation. Table 1 clearly illustrates that the link between cinema attendance and life satisfaction transcends deprivation. In every single deprivation decile, from the most deprived to the least deprived, you are most likely to not be a cinema-goer if you have low life satisfaction. As previously mentioned, people are most likely to be cinema-goers not if they have very high life satisfaction, but rather if they merely have 'high' life satisfaction, and this also finds itself replicated in every single deprivation decile.<br>
+Regardless of these consistencies, even if you have the ideal 'high' life satisfaction, if you live in the most deprived areas you are still less likely to have been to the cinema than a person with 'low' life satisfaction living in the most affluent areas. 
+
+Table 1 *Percentage of cinema-goers by life satisfaction and deprivation index*
+```{r Attendance by satisfaction and IMD}
+survey_imd <- survey_data %>% filter(!is.na(CARTS1_004))
+survey_imd <- survey_imd %>% filter(!is.na(emdidc19))
+survey_imd_design <- svydesign(ids = ~1, data = survey_imd, weights = ~finalweight)
+table_result <- svytable(~ emdidc19 + WELLB1_NET, design = survey_imd_design)
+
+survey_imd2 <- survey_imd %>% filter(CARTS1_004=="Yes")
+survey_imd2_design <- svydesign(ids = ~1, data = survey_imd2, weights = ~finalweight)
+table_result2 <- svytable(~ emdidc19 + WELLB1_NET, design = survey_imd2_design)
+
+table_result3 <- round((table_result2/table_result)*100,1)
+names(dimnames(table_result3)) <- c("IMD","Satisfaction")
+
+write.csv(table_result3,'survey/t1-attend-satisfaction-imd.csv')
+
+#knitr::kable(table_result3)
+
+# Convert the crosstab (matrix/table) to a data frame while preserving its layout
+df_result3 <- as.data.frame.matrix(table_result3)
+
+# Identify numeric columns
+num_cols <- names(df_result3)[sapply(df_result3, is.numeric)]
+
+# Compute global minimum and maximum across all numeric cells
+global_min <- min(unlist(df_result3[num_cols]), na.rm = TRUE)
+global_max <- max(unlist(df_result3[num_cols]), na.rm = TRUE)
+
+# Define breakpoints at 1/5, 2/5, 3/5, and 4/5 of the global range
+bp1 <- global_min + (global_max - global_min) * 1/5
+bp2 <- global_min + (global_max - global_min) * 2/5
+bp3 <- global_min + (global_max - global_min) * 3/5
+bp4 <- global_min + (global_max - global_min) * 4/5
+
+# Define the color palette: from red (lowest) to green (highest)
+colors <- c("red", "orange", "yellow", "chartreuse", "green")
+
+# Create the DT datatable with only sorting enabled
+datatable(df_result3,
+          options = list(
+            dom = 't',        # Only display the table; no search box, pagination, etc.
+            ordering = TRUE,  # Enable column sorting
+            # Set column header text to white
+            initComplete = JS(
+              "function(settings, json) {",
+              "  $(this.api().table().header()).find('th').css({'color': 'white','font-size': '75%'});",
+              "}"
+            )
+          ),
+          rownames = TRUE) %>%
+  # Style the row labels (rownames) to appear in white
+  formatStyle(
+    columns = 0, 
+    color = "white"
+  ) %>%
+  # Round numeric values to one decimal place
+  formatRound(columns = num_cols, digits = 1) %>%
+  # Apply global conditional formatting to shade the background of numeric cells
+  formatStyle(
+    columns = num_cols,
+    backgroundColor = styleInterval(c(bp1, bp2, bp3, bp4), colors),
+  ) %>% 
+  formatStyle(
+    columns = 0:4, fontSize = '75%'
+  )
+
+
+```
+
+::: {style="font-size: 75%;"}
+Variables = CARTS1_004 *In the last 12 months which of the following events have you attended in person in England : a cinema screening of a film or movie*,WELLB1 *Overall how satisfied are you with your life nowadays?* and emdidc19 *Index of Multiple Deprivation*<br>
+<a href="survey/t1-attend-satisfaction-imd.csv" download>Download data</a>
+:::
+
+# Conclusion
+While there are other factors at play, the data indicates that there is a relationship between life satisfaction and cinema attendance. Therefore, to increase cinema attendance, distributors and exhibitors should consider cheering up depressed people, and undermining the happiness of the truly contented. 

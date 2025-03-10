@@ -1,0 +1,22 @@
+project:
+  type: website
+
+website:
+  title: "stats-website"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - about.qmd
+
+format:
+  html:
+    theme:
+      - slate
+    css: styles.css
+    toc: true
+    toc-expand: true
+
+execute:
+  freeze: auto
+

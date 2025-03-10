@@ -1,0 +1,7 @@
+---
+title: "stats-website"
+---
+
+[Do depressed people go to the cinema?](participation-survey.html)
+
+[Do people complete video games?](video-game-completion.html)

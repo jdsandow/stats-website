@@ -1,0 +1,226 @@
+---
+title: "Video game completion rates"
+format: html
+execute: 
+  echo: false
+  warning: false
+---
+
+```{python Libraries}
+#| output: false 
+import pandas as pd
+import numpy as np
+import plotly.express as px
+```
+
+```{python Import data}
+#| output: false 
+df = pd.read_csv("game-completion/ps4_game_completions.csv")
+```
+
+# Headlines
+
+* Just 2% of popular single-player, narrative video games released for the PlayStation 4 were completed by a majority of their players
+* *The Last of Us Part II* was the most completed video game (58%)
+* Typically, only 25% of a video game's players would see the narrative through to completion
+* There is no correlation between the length of a video game, or how well acclaimed it is, and overall completion rates
+
+# Introduction
+Broadly speaking there are two types of video game: those designed in an open-ended manner to keep you playing for as long as possible (e.g., arcade games like *Pacman*, online experiences like *Fortnite*), and games that provide a definite end goal to reach - typically, but not always, having the player follow a narrative (e.g., *Super Mario Bros*, *Uncharted*). For games that fall into the second category, a significant metric must be 'how many people were engaged enough with the work to see it through to the end', and this is what will be explored here.
+
+The games included will be limited in the following ways:
+
+* They will need to be focused on single-player experiences with a definitive end goal
+<details>
+<summary>Read more</summary>
+    Although this will be objective to an extent, e.g., while most sports games do not have identifiable end points some - arguably - do. E.g., *Crash Team Racing* has a narrative that sees you competing in a racing competition and 'beating' a final boss.<br>
+    Beating the end goal of the main narrative will count as 'completing' the game - post-game content (e.g., DLC, collect-a-thons) will be ignored.
+</details>
+* They will need to have been released on the PlayStation 4
+<details>
+<summary>Read more</summary>
+    This will mostly limit the games to ones that have been out for a while, giving most players enough time to complete.
+</details>
+* They will need to have been popular
+<details>
+<summary>Read more</summary>
+    There's no single, objective list so the games included will be a combination of those listed on Wikipedia as the best-selling titles (acknowleding that this list is reliant on publisher statements or third-party research), games that made it onto the PlayStation's Greatest Hits range (although just because a game was not included in the range does not mean it did not sell well, and vice versa), and games listed as having the highest number of owners on PSNProfiles (although there is an element of self-selection about this list).
+</details>
+* They need to have a trophy that obviously marks completion of the game
+<details>
+<summary>Read more</summary>
+    I will be ascertaining game completion through the percentage of a game's players who have achieved the end game 'trophy'. As there is no standard way of denoting this, it was a largely manual process (helped out with some Python code) and relied on my own research and subjective judgement.
+</details>
+
+# Most completed video games
+Just three games out of the popular video games analysed here were completed by a majority of their players: *The Last of Us Part II* (58%), *Uncharted 2: Among Thieves* (57%) and *Yakuza Kiwami 2* (53%)(Table 1). Two things obviously link these titles: the first is that they are all sequels in popular franchises. This is likely to impact the completion rate as, for example, people who fail to engage with *Yakuza Kiwami*'s style are unlikely to progress to the second installment, so the playerbase is already self-selecting. (The first *Yakuza Kiwami* only has a 19% completion rate.) The second commonality is that they are all highly story-driven, with *Last of Us* and *Uncharted* having recently inspired uninteractive takes (i.e., a TV series and a film) on their narratives, indicating an appeal for these games beyond their gameplay elements.
+
+While most of these titles are clearly narrative-driven (including one - *Detroit: Become Human* that is close to simply being an interactive film), *Marvel's Spider-Man, Tomb Raider* and *Assassin's Creed 2* are all identified by the Internet Game Database (IGDB) as either sandbox or open world games, so it's a testament to these game's narratives that players engaged with their main stories as much as they did.
+
+The tenth most-completed popular title, *Naruto Shippuden: Ultimate Ninja Storm 4* is a fighting game, but one with a specific story mode that seems quite narratively dense.
+
+Table 1 *Popular PS4 games with the highest completion rates*
+```{python Top ten}
+df_sorted = df.sort_values(by='completion_rate', ascending=False)
+df10 = df_sorted[['game_title', 'completion_rate']].head(10)
+df10 = df10.rename(columns={'game_title': 'Game Title', 'completion_rate': 'Completion %'})
+df10['Completion %'] = df10['Completion %'].round(1)
+df10.reset_index(drop=True,inplace=True)
+df10.index=df10.index+1
+
+df10
+```
+
+# What's the typical completion rate for a popular video game?
+As discussed, only three (or 2%) of the popular PS4 video games analysed here were completed by a majority of their players. The median completion rate is just 25%, with 43 (35%) of analysed video games being completed by between 20% and 30% of their players.
+
+Figure 1
+```{python Completion bin chart}
+bins = [0, 10, 20, 30, 40, 50, np.inf]
+labels = ["0-9", "10-19", "20-29", "30-39", "40-49", "50+"]
+
+df['completion_rate_bin'] = pd.cut(df['completion_rate'], bins=bins, labels=labels, right=False)
+
+bin_counts = df['completion_rate_bin'].value_counts().sort_index()
+
+fig = px.bar(
+            bin_counts, 
+            x=bin_counts.index, 
+            y=bin_counts.values,
+            color=bin_counts.index,
+            color_discrete_sequence=px.colors.qualitative.Plotly
+)
+
+fig.update_layout(
+    showlegend=False,
+    title_font_color="white",
+    font_color="white",
+    xaxis=dict(
+        title="Completion %",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    yaxis=dict(
+        title="Number of video games",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)'
+)
+
+fig.update_traces(hovertemplate='%{y}<extra></extra>')
+
+fig.show()
+```
+
+# Is there a link with length and completion rate?
+No.
+
+```{python Length}
+fig = px.scatter(
+    df,
+    x='main_story_length',
+    y='completion_rate',
+    custom_data=['game_title'] 
+)
+
+fig.update_traces(
+    hovertemplate="%{customdata[0]}<br>Main story length (hours): %{x}<br>Completion rate (%): %{y}<extra></extra>"
+)
+
+fig.update_layout(
+    font_color="white",
+    title_font_color="white",
+    xaxis=dict(
+        title="Main story length (hours)",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    yaxis=dict(
+        title="Completion rate (%)",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    plot_bgcolor="rgba(0,0,0,0)", 
+    paper_bgcolor="rgba(0,0,0,0)"
+)
+
+fig.show()
+```
+
+# Is there a link with critic/player acclaim?
+Maybe
+
+```{python Acclaim}
+import plotly.graph_objects as go
+
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=df['metacritic_critic'],
+    y=df['completion_rate'],
+    mode='markers',
+    name='Critic',
+    customdata=df[['game_title']].values,
+    hovertemplate="%{customdata[0]}<br>Critic score: %{x}<br>Completion rate: %{y}<extra></extra>",
+    visible=True
+))
+
+fig.add_trace(go.Scatter(
+    x=df['metacritic_user'],
+    y=df['completion_rate'],
+    mode='markers',
+    name='User',
+    customdata=df[['game_title']].values,
+    hovertemplate="%{customdata[0]}<br>User score: %{x}<br>Completion rate (%): %{y}<extra></extra>",
+    visible=True
+))
+
+fig.update_layout(
+    xaxis=dict(
+        title="Metacritic score",
+        title_font=dict(color="white"),
+        tickfont=dict(color="white")
+    ),
+    yaxis=dict(
+        title="Completion rate (%)",
+        title_font=dict(color="white"),
+        tickfont=dict(color="white")
+    ),
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    legend=dict(
+        font=dict(color="white")
+    )
+)
+
+fig.show()
+```
+
+# Table with complete list of video games
+
+```{python}
+from itables import init_notebook_mode 
+
+cols = {
+    'game_title': 'Game Title',
+    'completion_rate': 'Completion %',
+    'IGDB_genres': 'Genres',
+    'IGDB_themes': 'Themes',
+    'main_story_length': 'Main story length (hrs)',
+    'metacritic_critic': 'Metacritic score',
+    'metacritic_user': 'Metacritic user score'
+}
+
+df_subset = df[['game_title', 'completion_rate', 'IGDB_genres', 'IGDB_themes',
+                'main_story_length', 'metacritic_critic', 'metacritic_user']].rename(columns=cols)
+
+df_subset['Completion %'] = df_subset['Completion %'].round(1)
+df_subset['Metacritic score'] = df_subset['Metacritic score'].round(0).astype('Int64')
+df_subset['Metacritic user score'] = df_subset['Metacritic user score'].round(0).astype('Int64')
+
+init_notebook_mode(all_interactive=True)
+df_subset
+```
+
