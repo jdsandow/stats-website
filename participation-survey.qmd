@@ -106,7 +106,7 @@ Variable = WELLB1 *Overall how satisfied are you with your life nowadays?*<br>
 :::
 
 # Cinema attendance by life satisfaction
-The survey data shows a statistically meaningful relationship between life satisfaction and cinema attendance. As can be seen in Figure 4, those with a low life satisfaction rating were the least likely to have been to the cinema in 2022/23. However, as we know that life satisfaction is related to deprivation, it is important to consider whether this relationship is confounded by deprivation.
+The survey data shows a statistically meaningful relationship between life satisfaction and cinema attendance. As can be seen in Figure 4, those with a low life satisfaction rating were the least likely to have been to the cinema in 2022/23. 
 (Also to note is that the relationship is not neatly linear, with the highest attendance rates peaks for those scoring themselves '7', before slightly dropping and then notably falling for those with 10/10 satisfaction.)
 
 Figure 3 *Cinema attendance by life satisfaction*

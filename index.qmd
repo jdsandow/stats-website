@@ -1,7 +1,9 @@
 ---
-title: "stats-website"
+title: "Stats viz experiments"
 ---
 
 [Do depressed people go to the cinema?](participation-survey.html)
 
 [Do people complete video games?](video-game-completion.html)
+
+[Do women rate films differently to men?](imdb-gender-dashboard.html)

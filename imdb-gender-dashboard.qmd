@@ -1,0 +1,123 @@
+---
+title: "IMDB ratings by gender"
+format: dashboard
+execute: 
+  echo: false
+  warning: false
+---
+
+```{ojs}
+//| output: false
+datashow = FileAttachment("imdb-gender/IMDBgender1001v.csv").csv({ typed: true })
+data = FileAttachment("imdb-gender/IMDBgender1001h.csv").csv({ typed: true })
+```
+
+# {.toolbar}
+
+```{ojs}
+viewof genre_select = Inputs.select(
+    ["All", "Action", "Adventure", "Animation", "Biography", "Comedy",  "Crime", "Drama", "Family", "Fantasy", "Horror", "Musical", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western"], 
+    { value: "All",
+        label: "Genres:"
+    }
+)
+```
+
+```{ojs}
+//| output: false
+filtered = data.filter(function(imdb) {
+    return genre_select === "All" || imdb.genres.includes(genre_select);
+})
+
+filteredwide = datashow.filter(function(imdb) {
+    return genre_select === "All" || imdb.genres.includes(genre_select);
+})
+```
+
+# Plot
+
+## Row
+```{ojs}
+Plot.plot({
+  y: {
+    grid: true,
+    domain: [0,10]
+  },
+  marks: [
+    Plot.boxY(filtered, {x: "Gender", y: "averageRating"})
+  ]
+})
+```
+
+### Column {width=25%}
+
+```{ojs}
+//| content: valuebox
+//| title: "Female average rating"
+//| icon: gender-female
+//| color: primary
+medianRatingFemale = d3.median(filtered.filter(d => d.Gender === "Female"), d => d.averageRating)
+md`${medianRatingFemale.toFixed(1)}`
+```
+
+```{ojs}
+//| content: valuebox
+//| title: "Male average rating"
+//| icon: gender-male
+//| color: primary
+medianRatingMale = d3.median(filtered.filter(d => d.Gender === "Male"), d => d.averageRating)
+md`${medianRatingMale.toFixed(1)}`
+```
+
+```{ojs}
+//| content: valuebox
+//| title: "Female vote share"
+//| icon: people-fill
+//| color: primary
+femaleVoteShare = d3.sum(filteredwide, d => d.fVotes) / d3.sum(filteredwide, d => d.iVotes)
+md`${(femaleVoteShare * 100).toFixed(1)}%`
+```
+
+## Row {height=40%}
+
+```{ojs}
+//| title: "Top five films according to women"
+Inputs.table(
+    filtered
+        .filter(d => d.Gender === "Female")
+        .sort((a, b) => a.RatingsRank - b.RatingsRank)
+        .slice(0, 5)
+        .map(d => ({
+            Title: d.primaryTitle,
+            Year: d.startYear.toString(),
+            Rating: d.averageRating.toFixed(1),
+            Difference: d.ratingDiff.toFixed(1)
+        })),
+    { layout: "auto" }
+)
+```
+
+```{ojs}
+//| title: "Top five films according to men"
+Inputs.table(
+    filtered
+        .filter(d => d.Gender === "Male")
+        .sort((a, b) => a.RatingsRank - b.RatingsRank)
+        .slice(0, 5)
+        .map(d => ({
+            Title: d.primaryTitle,
+            Year: d.startYear.toString(),
+            Rating: d.averageRating.toFixed(1),
+            Difference: d.ratingDiff.toFixed(1)
+        })),
+    { layout: "auto" }
+)
+```
+
+# Data
+
+```{ojs}
+Inputs.table(filteredwide, { sortable: true, rows: filteredwide.length })
+```
+
+To sort, just click on a column heading.
