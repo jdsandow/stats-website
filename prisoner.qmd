@@ -1,0 +1,337 @@
+---
+title: "Aggregated viewing orders of The Prisoner episodes"
+format: html
+execute: 
+  echo: false
+  warning: false
+---
+
+```{python Libraries}
+#| output: false 
+import pandas as pd
+import numpy as np
+import plotly.express as px
+```
+
+```{python Import data}
+#| output: false 
+df = pd.read_csv("prisoner/prisoner-episodes.csv")
+```
+
+# Introduction
+
+While many TV shows have had their episodes aired out of order thanks to meddling TV execs (see: Firefly, [more examples]), late-sixties show *The Prisoner* must be nearly unique in that, not only was it aired out of order, no one seems to know exactly what the correct order should have been. Plagued by post-production delays, by the time the first episode was scheduled to premiere on UK TV not every episode was completed, and so the original transmission order was strongly influenced by expediency - if the intended next episode wasn't finished, they aired a different one.
+
+Incredibly, no official order has ever emerged from the creatives behind the show. The self-contained structure of most episodes and its absurdist nature means it lacks a clear narrative flow from episode-to-episode, leading to a decades-long inability amongst the show's fans to agree on the best viewing order. 
+
+But how much difference is there between the proposed viewing orders, and is it possible to use a 'wisdom of the crowds' approach to find a middle ground?
+
+# Sourcing different orders
+
+In an attempt to understand the breadth of disagreement amongst fans, I've collected a range of viewing orders from across the internet. Its Wikipedia page gives a range of orders (including original, original US order, production, etc) and elsewhere I've relied on the first few pages of Google results for "The Prisoner viewing order", in the hope that Google's algorithm will point me towards viewing orders that are relatively popular. 
+
+Excluding the original order (the only one we know is objectively wrong), I've collected 28 different orders.
+
+# Which episodes are the most contentious?
+
+Out of these 28 orders, episodes A, B & C, A Change in Mind and Many Happy Returns have the most unique placements, being found in a unique location in almost a third of the orders. That people have suggested nine different possible locations for these episodes is all the more surprising when you remember that there are only 17 episodes in total - two of which (Arrival and Fall Out) are uniformly agreed to be the beginning and ending episodes.
+
+It is also *almost* unanimously agreed that the ending needs to be watched as a two-parter, beginning with Once Upon a Time. The lone voice crying against this is cult filmmaker and cultural critic Alex Cox who, in his book I Am (Not) A Number, argues for watching the series in production order (which would place the penultimate episode sixth).
+
+The median number of different locations an episode has been placed in is 6.5 - a staggering average for so short a series. In fact, out of these 28 orders, no two orders are the same. 
+
+```{python Import data}
+row_names = df.iloc[:, 0]
+numeric_data = df.iloc[:, 2:] # Ignores the ITC order, which is in the second column
+unique_counts = numeric_data.apply(lambda row: row.nunique(), axis=1)
+unique_pct = round((unique_counts / numeric_data.shape[1]) * 100,1)
+
+result_df = pd.DataFrame({
+    'Episode': row_names,
+    'Unique': unique_counts,
+    'Unique_pct': unique_pct
+})
+
+result_df = result_df.sort_values(by='Unique', ascending=True)
+
+fig = px.bar(
+            result_df, 
+            x=result_df['Episode'], 
+            y=result_df['Unique_pct'],
+            color=result_df['Episode'],
+            color_discrete_sequence=px.colors.qualitative.Plotly,
+            custom_data=[result_df['Unique']]
+)
+
+fig.update_layout(
+    showlegend=False,
+    title_font_color="white",
+    font_color="white",
+    xaxis_title=None,
+    yaxis=dict(
+        title="Variation %",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)'
+)
+fig.update_traces(hovertemplate="%{x}<br>%{y}%<br>Count: %{customdata[0]}<extra></extra>")
+
+fig.show()
+```
+
+## Suggested viewing orders for each episode
+
+But just looking at the number of different suggested placements for each episode doesn't tell the whole story. As you can see using the table below, while A Change in Mind has nine different suggested locations, there is also a clear favoured position. Twelve orders all place the episode 11th in viewing order, with the next two most popular positions (12th and 13th) only suggested by four different orders each. 
+
+The same cannot be said for other episodes. While no episode has a tied first place, eight orders suggest placing It's Your Funeral in 10th place, while 9th and 11th place are suggested by seven orders each. There are also episodes which have a high degree of variation, e.g., A, B & C is suggested everywhere from third to 15th.
+
+```{python Frequency table}
+
+freqdf = pd.DataFrame({df.columns[0]: df.iloc[:, 0]})
+
+for num in range(1, 18):
+    freqdf[num] = df.iloc[:, 1:].eq(num).sum(axis=1)
+
+freqdf.to_csv("prisoner/prisoner-freq.csv", index=False)
+
+```
+
+```{ojs}
+//| output: false
+freq = await d3.csv("prisoner/prisoner-freq.csv")
+```
+
+```{ojs}
+//| output: false
+rows = freq.length ? freq.map(d => d.Title) : []
+rows
+```
+
+```{ojs}
+viewof selectedRow = Inputs.select(
+    rows,
+    { value: "A Change of Mind",
+  label: "Select episode:"
+})
+```
+
+```{ojs}
+filteredFreq = freq.filter(d => d.Title === selectedRow)[0]
+
+Plot.plot({
+  marks: [
+    Plot.barY(
+      Object.entries(filteredFreq)
+        .filter(([key]) => key !== "Title")
+        .map(([key, value]) => ({ Order: +key, Frequency: +value })), // Convert key to numeric
+      { x: "Order", y: "Frequency", fill: "Order" }
+    )
+  ],
+  x: {
+    label: "Viewing Order"
+  },
+  y: {
+    label: "Frequency",
+    domain: [0,30]
+  },
+  color: {
+    type: "categorical",
+    scheme: "pastel2"
+  }
+})
+```
+
+## Variance statistics
+
+This leads me to two things I'm interested in knowing for each episode: one is simply the range of different suggested placements, and the other is not just whether there is a favoured placement but whether this placement has close rivals. This is shown below with the y-axis showing the range between the latest and earliest suggested placements, and the x-axis showing the frequency difference between the most suggested and the second most suggested placements. (E.g., if the most common placement of an episode was found in five orders, and the second most common placement was found in three, the difference would be two. The smaller the difference, the smaller the consensus.)
+
+Out of the 14 episodes plotted below (the opening and ending episodes are omitted, as we know they are the least contentious), five are located in the upper-right quadrant. Their placement here indicates that - relatively speaking - not only is there not a strong consensus in terms of a single placement but they also have a wide range of potential placements. 
+
+```{python}
+#| output: false
+def freq_diff(row):
+    freqs = pd.to_numeric(row.iloc[1:], errors='coerce').dropna()
+    top2 = freqs.nlargest(2)
+    return top2.iloc[0] - top2.iloc[1]
+
+# Apply to each row
+freqdiffdf = pd.DataFrame({
+    freqdf.columns[0]: freqdf.iloc[:, 0],
+    'FreqDifference': freqdf.apply(freq_diff, axis=1)
+})
+
+def range_diff(row):
+    range = pd.to_numeric(row.iloc[1:], errors='coerce').dropna()
+    top = range.nlargest(1)
+    bottom = range.nsmallest(1)
+    return top.iloc[0] - bottom.iloc[0]
+
+rangedf = pd.DataFrame({
+    df.columns[0]: freqdf.iloc[:, 0],
+    'Range': df.apply(range_diff, axis=1)
+})
+
+pd.options.mode.copy_on_write = True
+
+variancedf = pd.DataFrame(freqdiffdf)
+variancedf['FD'] = round((freqdiffdf['FreqDifference'].max() - freqdiffdf['FreqDifference']) / freqdiffdf['FreqDifference'].max(),2)
+variancedf['Range'] = rangedf['Range']
+variancedf['R'] = round(rangedf['Range'] / 17,2) 
+
+from IPython.display import display, Markdown
+import tabulate
+display(Markdown(variancedf.to_markdown(index=False)))
+```
+
+```{python}
+variancedf1 = variancedf[1:15]
+
+fig = px.scatter(
+    variancedf1,
+    x="FreqDifference",
+    y="Range",
+    hover_name="Title",
+    hover_data={"FD": False,
+    "R": False,
+    "Range": False,
+    "FreqDifference": False}
+)
+
+x_min, x_max = variancedf1["FreqDifference"].min(), variancedf1["FreqDifference"].max()
+y_min, y_max = variancedf1["Range"].min(), variancedf1["Range"].max()
+x_mid = (x_min + x_max) / 2
+y_mid = (y_min + y_max) / 2
+
+fig.update_layout(
+  shapes=[
+        # Bottom-left: soft green
+        dict(type="rect", xref="x", yref="y",
+             x0=x_min, x1=x_mid, y0=y_min, y1=y_mid,
+             fillcolor="rgba(255,255,200,0.3)", line_width=0, layer="below"),
+        # Top-right: soft red
+        dict(type="rect", xref="x", yref="y",
+             x0=x_mid, x1=x_max, y0=y_mid, y1=y_max,
+             fillcolor="rgba(255,255,200,0.3)", line_width=0, layer="below"),
+        # Top-left: soft yellow
+        dict(type="rect", xref="x", yref="y",
+             x0=x_min, x1=x_mid, y0=y_mid, y1=y_max,
+             fillcolor="rgba(255,200,200,0.3)", line_width=0, layer="below"),
+        # Bottom-right: soft yellow
+        dict(type="rect", xref="x", yref="y",
+             x0=x_mid, x1=x_max, y0=y_min, y1=y_mid,
+             fillcolor="rgba(200,255,200,0.3)", line_width=0, layer="below")
+    ],
+    showlegend=False,
+    title_font_color="white",
+    font_color="white",
+    xaxis=dict(
+        title="Frequency Difference",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    yaxis=dict(
+        title="Range",
+        title_font_color="white",
+        tickfont=dict(color="white")
+    ),
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)'
+)
+
+fig.update_traces(marker=dict(color='darkblue'))
+fig.update_xaxes(autorange='reversed')
+
+fig
+```
+
+## The average order
+
+Even though we've just shown that there is a high level of variability with regards to placement, let's still continue to look at orders derived from average placements. The below table looks at the average placement for each episode in terms of mean, median and mode.
+
+Each of these measures are imperfect. Mean is a poor measure to use as the data for many of the episodes are not normally distributed. And while cases could be made for median and mode being theoretically ideal, in reality neither of them provide clean orders: both lack a suggestion for the third episode (as fourth place is a tie) and median also lacks a suggestion for the 14th episode.
+
+Rather than pointing to a pre-existing order as most representative, this has simply created new orders with even more uncertainty. 
+
+```{python}
+from scipy import stats
+
+def get_row_mode(row):
+    numeric_values = row.iloc[1:].values
+    numeric_values = np.array(numeric_values, dtype=float)
+    mode_result = stats.mode(numeric_values)
+    return mode_result[0]
+
+dfaverage = pd.DataFrame()
+dfaverage['Title'] = df['Title']
+dfaverage['Mean'] = df.iloc[:, 1:].mean(axis=1).round(1)
+dfaverage['Mean (order)'] = dfaverage['Mean'].rank()
+dfaverage['Median'] = df.iloc[:, 1:].median(axis=1).astype(int)
+dfaverage['Mode'] = df.apply(get_row_mode, axis=1).astype(int)
+
+dfaverage_dict = {col: dfaverage[col].tolist() for col in dfaverage.columns}
+ojs_define(df_for_ojs = dfaverage_dict)
+```
+
+```{ojs}
+df_from_python = transpose(df_for_ojs)
+
+Inputs.table(
+  df_from_python
+)
+```
+
+# Which order has been viewed the most?
+
+There is a certain level of inevitability about the orders I've found all being different. If your ideal order is the same as another, then it lessens the likelihood of you writing your own guide, providing a unique response to a message board post, etc. (Although that none are even accidentally identical still seems surprising.) This means that this analysis is flawed to an extent, as we're giving the same weight to the order used on the American DVD release (here labelled A&E), seen by thousands of people, and a solitary voice on Reddit.
+
+While we don't necessarily know which order people used if they watched The Prisoner via DVD (or even if this is the one that they prefer), what we do know is that The Prisoner made its initial impact in the UK using the original televised order, and in the US using their original televised order. Even though these orders are now understood to not be ideal, they still are the orders by which The Prisoner originally made a name for itself, so accordingly have a massive amount of legitimacy.
+
+# Orders side-by-side
+
+If you'd like to compare the various viewing orders I've collected, use the table below. (Note: this excludes the orders collected from message board posts.)
+
+```{ojs}
+//| output: false
+data = await d3.csv("prisoner/prisoner-episodes.csv")
+```
+
+```{ojs}
+//| output: false
+columns = data.length ? Object.keys(data[0]).slice(1) : []
+columns
+```
+
+```{ojs}
+viewof selectedColumn1 = Inputs.select(
+    columns,
+    { value: "ITC",
+  label: "Select Column:"
+})
+```
+
+```{ojs}
+viewof selectedColumn2 = Inputs.select(
+    columns,
+    { value: "Production",
+  label: "Select Column:"
+})
+```
+
+```{ojs}
+Inputs.table(
+  data
+    .map(d => ({
+      Title: d.Title,
+      "Order 1": +d[selectedColumn1],
+      "Order 2": +d[selectedColumn2]
+    }))
+    .sort((a, b) => d3.ascending(a["Order 1"], b["Order 1"])),
+  { layout: "auto" }
+)
+```
+
+# What's my preferred viewing order?
+
+Don't know, I've never seen the show.

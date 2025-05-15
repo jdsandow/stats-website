@@ -16,6 +16,11 @@ format:
     css: styles.css
     toc: true
     toc-expand: true
+    resources: 
+      - game-completion
+      - imdb-gender
+      - prisoner
+      - survey
 
 execute:
   freeze: auto
